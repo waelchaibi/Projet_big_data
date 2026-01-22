@@ -160,6 +160,7 @@ services:
     container_name: airflow-webserver
     depends_on:
       - postgres
+      - namenode
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -175,10 +176,11 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-      - ./spark-apps:/opt/spark-apps
+      - ./scripts/requirements.txt:/opt/airflow/requirements.txt
     ports:
       - "8083:8080"
-    command: webserver
+    command: >
+      bash -c "pip install --no-cache-dir kafka-python hdfs && airflow webserver"
     networks:
       - bigdata-network
 
@@ -189,6 +191,8 @@ services:
     depends_on:
       - postgres
       - airflow-webserver
+      - kafka
+      - namenode
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -199,8 +203,9 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-      - ./spark-apps:/opt/spark-apps
-    command: scheduler
+      - ./scripts/requirements.txt:/opt/airflow/requirements.txt
+    command: >
+      bash -c "pip install --no-cache-dir kafka-python hdfs && airflow scheduler"
     networks:
       - bigdata-network
 
