@@ -79,6 +79,82 @@ services:
     profiles:
       - test
 
+  spark-master:
+    image: apache/spark:3.5.8-scala2.12-java11-python3-r-ubuntu
+    container_name: spark-master
+    hostname: spark-master
+    user: "0:0"
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+      - HOME=/root
+      - IVY_HOME=/ivy
+      - SPARK_LOCAL_DIRS=/tmp/spark-local
+    volumes:
+      - ./scripts:/opt/spark-apps
+      - spark-ivy-cache:/ivy
+    networks:
+      - bigdata-network
+
+  spark-worker:
+    image: apache/spark:3.5.8-scala2.12-java11-python3-r-ubuntu
+    container_name: spark-worker
+    hostname: spark-worker
+    user: "0:0"
+    depends_on:
+      - spark-master
+      - kafka
+    ports:
+      - "8081:8081"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - HOME=/root
+      - IVY_HOME=/ivy
+      - SPARK_LOCAL_DIRS=/tmp/spark-local
+    volumes:
+      - ./scripts:/opt/spark-apps
+      - spark-ivy-cache:/ivy
+    networks:
+      - bigdata-network
+
+  spark-aggregation:
+    image: apache/spark:3.5.8-scala2.12-java11-python3-r-ubuntu
+    container_name: spark-aggregation
+    user: "0:0"
+    depends_on:
+      spark-master:
+        condition: service_started
+      spark-worker:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      - HOME=/root
+      - IVY_HOME=/ivy
+      - SPARK_LOCAL_DIRS=/tmp/spark-local
+    volumes:
+      - ./scripts:/opt/spark-apps
+      - spark-ivy-cache:/ivy
+    working_dir: /opt/spark-apps
+    command: >
+      bash -c "/opt/spark/bin/spark-submit --master spark://spark-master:7077 --conf spark.jars.ivy=/ivy --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0 spark_weather_aggregation.py"
+    networks:
+      - bigdata-network
+    restart: unless-stopped
+
 networks:
   bigdata-network:
     driver: bridge
+
+volumes:
+  spark-ivy-cache:
