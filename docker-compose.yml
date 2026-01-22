@@ -123,24 +123,7 @@ services:
     networks:
       - bigdata-network
 
-  # Spark Aggregation - Étape 3
-  spark-aggregation:
-    image: bitnami/spark:3.0
-    container_name: spark-aggregation
-    depends_on:
-      - spark-master
-      - spark-worker
-      - kafka
-    condition: service_healthy
-    volumes:
-      - ./scripts:/app
-    working_dir: /app
-    command: >
-      sh -c "spark-submit --master spark://spark-master:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.0.1 spark_weather_aggregation.py"
-    networks:
-      - bigdata-network
-    profiles:
-      - spark
+
 
 networks:
   bigdata-network:
