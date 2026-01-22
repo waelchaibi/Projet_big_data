@@ -15,6 +15,70 @@ services:
     networks:
       - bigdata-network
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zk-server
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - bigdata-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 40s
+    networks:
+      - bigdata-network
+
+  weather-producer:
+    image: python:3.9-slim
+    container_name: weather-producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/app
+    working_dir: /app
+    command: >
+      sh -c "pip install -r requirements.txt && python weather_producer.py"
+    networks:
+      - bigdata-network
+    restart: unless-stopped
+
+  weather-consumer:
+    image: python:3.9-slim
+    container_name: weather-consumer
+    depends_on:
+      - kafka
+      - weather-producer
+    volumes:
+      - ./scripts:/app
+    working_dir: /app
+    command: >
+      sh -c "pip install -r requirements.txt && python weather_consumer.py"
+    networks:
+      - bigdata-network
+    profiles:
+      - test
+
 networks:
   bigdata-network:
     driver: bridge
