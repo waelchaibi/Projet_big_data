@@ -1,0 +1,20 @@
+services:
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./scripts:/home/jovyan/scripts
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=python
+      - CHOWN_HOME=yes
+      - CHOWN_HOME_OPTS='-R'
+    networks:
+      - bigdata-network
+
+networks:
+  bigdata-network:
+    driver: bridge
